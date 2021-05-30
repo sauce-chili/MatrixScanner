@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.budiyev.android.codescanner.CodeScannerView
+        android:id="@+id/scanner_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible"
+        app:autoFocusButtonColor="#FFEB3B"
+        app:autoFocusButtonVisible="true"
+        app:flashButtonColor="#FFEB3B"
+        app:flashButtonVisible="true"
+        app:frameAspectRatioHeight="2"
+        app:frameAspectRatioWidth="2"
+        app:frameColor="#FFEB3B"
+        app:frameCornersRadius="35dp"
+        app:frameCornersSize="50dp"
+        app:frameSize="0.60"
+        app:frameThickness="3dp"
+        app:maskColor="#401C1C1C"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/goToReviewPackage"
+        app:backgroundTint="#FFEB3B"
+        android:src="@drawable/ic_baseline_notes_24"
+        app:tint="@color/white"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginBottom="38dp"
+        android:layout_marginEnd="15dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+</RelativeLayout>

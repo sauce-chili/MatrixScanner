@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/text_title">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:paddingEnd="18dp"
+        android:paddingStart="18dp">
+
+        <TextView
+            android:id="@+id/name_activity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:text="@string/PackageRV"
+            android:textColor="@color/white"
+            android:textSize="25sp"/>
+
+        <ImageView
+            android:id="@+id/ic_agree"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toStartOf="@+id/ic_cancel"
+            android:layout_marginEnd="25dp"
+            android:src="@drawable/ic_baseline_check_28"/>
+
+        <ImageView
+            android:id="@+id/ic_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="25dp"
+            android:layout_toStartOf="@id/ic_selectAll"
+            android:src="@drawable/ic_baseline_cancel_28"/>
+
+        <ImageView
+            android:id="@+id/ic_selectAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:src="@drawable/ic_baseline_select_all_28"/>
+
+    </RelativeLayout>
+
+</RelativeLayout>
