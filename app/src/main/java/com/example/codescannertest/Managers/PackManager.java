@@ -1,43 +1,19 @@
-package com.example.codescannertest;
+package com.example.codescannertest.Managers;
 
-import android.Manifest;
-import android.accounts.Account;
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.example.codescannertest.model.*;
-
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.Scope;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
-import com.google.api.client.extensions.android.http.AndroidHttp;
-import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
-import com.google.api.client.http.FileContent;
-import com.google.api.client.http.HttpRequestInitializer;
-import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.DriveScopes;
-import com.google.api.services.drive.model.FileList;
-
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
-import org.xmlpull.v1.sax2.Driver;
+import com.example.codescannertest.model.Pack;
+import com.example.codescannertest.model.Publisher;
+import com.example.codescannertest.model.Subscriber;
+import com.google.android.gms.tasks.OnFailureListener;
 
 import java.io.File;
 import java.io.FileReader;
@@ -46,127 +22,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
-class GoogleDriveManager{
-    private Executor mExecutor;
-    private Drive mDriveService;
-    private  final String FILE_SUFFIX;
-    private final String WORKING_DIR_NAME;
-    private final String MEDIA_TYPE = "text/csv";
-    private final Activity activity;
-    private final String TOKEN = "68777702676-g5pgckr5tmd0tcdbuu78q37focfbql1l.apps.googleusercontent.com";
-
-    private Drive getGoogleDriverService(){
-        GoogleAccountCredential credential = GoogleAccountCredential
-                .usingOAuth2(activity.getApplicationContext(),
-                        Collections.singleton(DriveScopes.DRIVE_FILE));
-
-        Account acc = GoogleSignIn.getLastSignedInAccount(activity.getApplicationContext()).getAccount();
-        credential.setSelectedAccount(acc);
-
-        if(acc == null){
-            GoogleSignIn.getSignedInAccountFromIntent(activity.getIntent())
-                    .addOnSuccessListener(new OnSuccessListener<GoogleSignInAccount>() {
-                        @Override
-                        public void onSuccess(GoogleSignInAccount googleSignInAccount) {
-
-                            credential.setSelectedAccount(googleSignInAccount.getAccount());
-
-                        }
-                    })
-                    .addOnFailureListener(new OnFailureListener() {
-                        @Override
-                        public void onFailure(@NonNull Exception e) {
-
-                        }
-                    });
-        }
-
-        return new Drive.Builder(
-                AndroidHttp.newCompatibleTransport(),
-                new GsonFactory(),
-                credential)
-                .setApplicationName("DataMatrixCodes")
-                .build();
-    }
-
-    public GoogleDriveManager(Activity activity,String fs,String workingDirName){
-        this.activity = activity;
-        this.mDriveService = this.getGoogleDriverService();
-        this.mExecutor = Executors.newSingleThreadExecutor();
-        this.FILE_SUFFIX = fs;
-        this.WORKING_DIR_NAME = workingDirName;
-    }
-
-    public Task<String> createPack(String fileName,File dir){
-        return Tasks.call(mExecutor,() ->{
-            String nextToken = null;
-            HashMap<String, String> GdirsName = new HashMap<>();
-            // Проверяем создана-ли директория
-            do{
-                try {
-                    FileList result = mDriveService.files().list()
-                            .setQ("application/vnd.google-apps.folder")
-                            .setSpaces("drive")
-                            .setFields("nextPageToken, files(id, name)")
-                            .setPageToken(null)
-                            .execute();
-
-                    for(com.google.api.services.drive.model.File file : result.getFiles()){
-                        GdirsName.put(file.getName(),file.getId());
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }while (nextToken != null);
-
-            // id директории на Gdisk,куда выгружаются данные
-            String idDirGoogleDrive;
-            // Если папка отсутсвует на google disk'e,то создаём её
-            if(! GdirsName.containsKey(WORKING_DIR_NAME)) {
-
-                com.google.api.services.drive.model.File PathMetadata =
-                        new com.google.api.services.drive.model.File();
-                PathMetadata.setName(WORKING_DIR_NAME);
-                PathMetadata.setMimeType("application/vnd.google-apps.folder");
-
-                com.google.api.services.drive.model.File GPath = mDriveService.files().create(PathMetadata)
-                        .setFields("id")
-                        .execute();
-
-                idDirGoogleDrive = GPath.getId();
-            }else {
-                idDirGoogleDrive = GdirsName.get(WORKING_DIR_NAME);
-            }
-
-            // Создание файла в директории
-            com.google.api.services.drive.model.File GFileMetadata =
-                    new com.google.api.services.drive.model.File();
-            GFileMetadata.setName(fileName);
-
-            GFileMetadata.setParents(Collections.singletonList(idDirGoogleDrive));
-            java.io.File MyFile = new java.io.File(dir.getAbsolutePath() +
-                    File.separator + fileName + FILE_SUFFIX);
-
-            FileContent mediaContent = new FileContent(MEDIA_TYPE, MyFile);
-            com.google.api.services.drive.model.File Gfile =
-                    mDriveService.files().create(GFileMetadata, mediaContent)
-                            .setFields("id, parents")
-                            .execute();
-
-            return Gfile.getId();
-        });
-    }
-}
-
-
-class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
+public class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
     private final static String TAG = "PackManager";
     private final static String SHARED_NAME = "PACK_MANAGER";
     private final static String KEY_CURRENT_WRITING_PACK_NAME = "writing_pack";
@@ -248,7 +108,7 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
             this.subs.remove(sub);
     }
 
-    protected void setCurrentActivity(Activity activity) {
+    public void setCurrentActivity(Activity activity) {
         this.activity = activity;
     }
 
@@ -272,36 +132,38 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
         return data.toString();
     }
 
-    protected synchronized void writeInWritingPackage(String data){
+    public synchronized void writeInWritingPackage(String data){
          /*проверка на специальный DataMatrix символ,
           * байт-код значение которого равно 29.
           */
         Log.d("MatrixWR",data);
         if((byte)data.charAt(0) == 29){
             String nameWritingPack = getWritingPackageName();
-            Log.d("MatrixWR","writing pack name: " + nameWritingPack);
+            Log.d("MatrixWR","Datamatrix has a special char");
+            Log.d("MatrixWR","current wr pack name: " + nameWritingPack);
             if(!nameWritingPack.equals("")){
-                Log.d("MatrixR","valid");
+                Log.d("MatrixWR","valid name pack(!= '')");
                 String folder = dir.getAbsolutePath() + File.separator +
                         nameWritingPack + FILE_SUFFIX;
                 try(FileWriter fw = new FileWriter(folder,true)) {
-                    Log.d("MatrixWR","Read from pack");
+                    Log.d("MatrixWR","Read data from selected pack");
                     String dataWritingPack = readFromPackage(nameWritingPack);
                     if(dataWritingPack != null){
                         Log.d("MatrixWR","not null");
                         List<String> d = Arrays.asList(dataWritingPack.split("\n"));
-                        Log.d("MatrixWR","data for wr pack: " + d.toString());
+                        Log.d("MatrixWR","data for current wr pack: " + d.toString());
                         if(!d.contains(data)){
                             Toast.makeText(activity.getApplicationContext(),
                                     "Данные записаны в пакет " + nameWritingPack,
                                     Toast.LENGTH_SHORT).show();
-                            Log.d("MatrixWR","data isn't contains");
+                            Log.d("MatrixWR","scanned data isn't contains in current wr pack");
                             fw.write(data + "\n");
+                            Log.d("MatrixWR","Data was recorded in current wr pack");
                         }else{
                             Toast.makeText(activity.getApplicationContext(),
                                     "Данный код уже занесён в пакет",
                                     Toast.LENGTH_SHORT).show();
-                            Log.d("MatrixWR","data also contains");
+                            Log.d("MatrixWR","Such data also contains");
                         }
                     }
                     fw.flush();
@@ -325,6 +187,7 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
                 .edit();
         editor.putString(KEY_CURRENT_WRITING_PACK_NAME, name);
         editor.apply();
+        Log.d("WritingPack","currently set name wr pack: " + name);
     }
 
     public String getWritingPackageName() {
@@ -335,9 +198,11 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
 
     public void uploadPack(ArrayList<Pack> selectedPacks){
         ProgressDialog progressDialog = new ProgressDialog(activity);
-        progressDialog.setTitle("Uploading to GDrive");
-        progressDialog.setMessage("Please wait..");
-        progressDialog.show();
+        activity.runOnUiThread(() -> {
+            progressDialog.setTitle("Обновление данных на GDrive");
+            progressDialog.setMessage("Загрузка..");
+            progressDialog.show();
+        });
 
         if (googleDriveManager == null)
             googleDriveManager = new GoogleDriveManager(activity,FILE_SUFFIX,NAME_DIR);
@@ -345,14 +210,20 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
         for(Pack pack : selectedPacks){
             googleDriveManager.createPack(pack.name,dir)
             .addOnSuccessListener(s -> {
-                progressDialog.dismiss();
+                activity.runOnUiThread(progressDialog::dismiss);
                 Toast.makeText(activity.getApplicationContext(),
                         "Пакет " + pack.name + " выгружен успешно",
                         Toast.LENGTH_SHORT).show();
-                Log.d("Successful upload","Пакет " + pack.name + " выгружен успешно " + s);
+                Log.d("GDrive upload","Pack " + pack.name + " was uploaded successful. " + s);
             })
-            .addOnFailureListener(Throwable::printStackTrace);
-
+            .addOnFailureListener(e -> {
+                e.printStackTrace();
+                activity.runOnUiThread(progressDialog::dismiss);
+                Toast.makeText(activity.getApplicationContext(),
+                        "Не удалось выгрузить пакет " + pack.name,
+                        Toast.LENGTH_SHORT).show();
+                Log.d("GDRive upload","Pack " + pack.name + " was uploaded unsuccessful");
+            });
         }
     }
 
@@ -360,13 +231,9 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
         Log.d("Create new files: ", fileNames.toString());
         new Thread(){
             @Override
-            public synchronized void start() {
-                super.start();
-            }
-            @Override
             public void run() {
                 try {
-                    for (String fileName : fileNames) {
+                    for(String fileName : fileNames){
                         new File(dir.getAbsolutePath() + File.separator + fileName + FILE_SUFFIX).createNewFile();
                         Log.d(TAG, "Create file " + dir.getAbsolutePath() + File.separator + fileName + FILE_SUFFIX);
                         sleep(10);
@@ -382,11 +249,6 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
     public void deletePackage(@NonNull ArrayList<String> fileNames) {
         Log.d("Delete file","File names: "+ fileNames.toString());
         new Thread(){
-            @Override
-            public synchronized void start() {
-                super.start();
-            }
-
             @Override
             public void run() {
                 try {
@@ -422,7 +284,7 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
             Log.d(TAG, "Dir is create");
             dir.mkdir();
         } else {
-            Log.d(TAG, "Dir " + dir.toString() + " is exists");
+            Log.d(TAG, "Dir " + dir.toString() + " is also exists");
         }
         super.start();
     }
@@ -477,90 +339,3 @@ class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
         }
     }
 }
-
-
-
-public class BaseActivity extends AppCompatActivity {
-
-    static public class PermissionManager {
-        static public final int CAMERA_PERMISSION_CODE = 100;
-        static public final int WRITE_EXTERNAL_STORAGE_PERMISSION_CODE = 101;
-        static public final int READ_EXTERNAL_STORAGE_PERMISSION_CODE = 102;
-        static public final int INTERNET_PERMISSION_CODE = 103;
-        static public final int G_ACCOUNT_PERMISSION_CODE = 104;
-
-        private static void requestSignInGoogleAccount(Activity activity) {
-            GoogleSignInOptions signInOptions = new GoogleSignInOptions
-                    .Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestScopes(new Scope(DriveScopes.DRIVE_FILE))
-                    .build();
-
-            GoogleSignInClient client = GoogleSignIn.getClient(activity, signInOptions);
-            activity.startActivityForResult(client.getSignInIntent(), G_ACCOUNT_PERMISSION_CODE);
-        }
-
-        static void getPermissions(Activity activity) {
-            if (!checkCameraPermission(activity)) {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
-            }
-
-            if (!checkWriteStoragePermission(activity)) {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                        WRITE_EXTERNAL_STORAGE_PERMISSION_CODE);
-            }
-
-            if (!checkReadStoragePermission(activity)) {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                        READ_EXTERNAL_STORAGE_PERMISSION_CODE);
-            }
-
-            if (!checkInternetPermission(activity)) {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.INTERNET}, INTERNET_PERMISSION_CODE);
-            }
-
-            if (!checkGAccountsPermission(activity)) {
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.GET_ACCOUNTS}, G_ACCOUNT_PERMISSION_CODE);
-            }
-            requestSignInGoogleAccount(activity);
-        }
-
-        static boolean checkCameraPermission(Activity activity) {
-            return ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                    Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        static boolean checkReadStoragePermission(Activity activity) {
-            return ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        static boolean checkWriteStoragePermission(Activity activity) {
-            return ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                    Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        static boolean checkInternetPermission(Activity activity) {
-            return ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                    Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        static boolean checkGAccountsPermission(Activity activity) {
-            return ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                    Manifest.permission.GET_ACCOUNTS) == PackageManager.PERMISSION_GRANTED;
-        }
-
-    }
-
-    protected PackManager packManager;
-    BaseActivity() {
-        if (packManager == null) packManager = PackManager.getInstance(BaseActivity.this);
-    }
-}
-
-

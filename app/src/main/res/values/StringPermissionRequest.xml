@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="CameraPermissionTitle">Разрешение на доступ к камере</string>
+    <string name="CameraPermissionText">Данное разрешение необходимо для сканирования DataMatrix.Пожалуйста,предоставьте это разрешение></string>
+
+    <string name="ReadWritePermissionTitle">Разрешение на чтение/запись</string>
+    <string name="ReadWritePermissionText">Данные разрешения необходимо для сохранения декодированных данных с DataMatrix</string>
+
+    <string name="GoogleAccountPermissionTitle">Разрешние на доступ к Google Drive</string>
+    <string name="GoogleAccountPermissionText">Данные разрешения необходимо для сохранения декодированных с DataMatrix данных на ваш Google Drive</string>
+</resources>

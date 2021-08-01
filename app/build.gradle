@@ -39,6 +39,11 @@ android {
     }
 }
 
+allprojects {
+    repositories {
+        google()
+    }
+}
 
 dependencies {
 
@@ -52,6 +57,9 @@ dependencies {
 
     /*circle img for icon codes*/
     implementation 'de.hdodenhof:circleimageview:3.1.0'
+
+    /*Permission*/
+    implementation 'com.karumi:dexter:6.2.2'
 
     /*Google Drive*/
     implementation 'com.google.android.gms:play-services-auth:19.0.0'

@@ -1,9 +1,11 @@
 package com.example.codescannertest;
 
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -18,14 +20,19 @@ import android.widget.Toast;
 
 import com.example.codescannertest.adapter.PackAdapter;
 import com.example.codescannertest.model.Pack;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.common.api.ApiException;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.karumi.dexter.listener.single.PermissionListener;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 
-
-public class ReviewPackages extends BaseActivity{
+public class ReviewPackages extends BaseeActivity {
 
     private RecyclerView rvPackages;
     private ArrayList<Pack> selectedPack;
@@ -35,6 +42,7 @@ public class ReviewPackages extends BaseActivity{
     private PackAdapter adapter;
     private FloatingActionButton addBtn;
 
+    // TODO Enum для состояний
 
     private void activateSelectionMode(){
         findViewById(R.id.toolbar).setVisibility(View.GONE);
@@ -77,54 +85,45 @@ public class ReviewPackages extends BaseActivity{
         builder.setView(view);
         EditText title = (EditText) view.findViewById(R.id.input_title);
 
-        builder.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                Log.d("Create new file",Boolean.toString(title == null));
-                String namePack = title.getText().toString();
-                ArrayList<String> filesName = new ArrayList<>();
-                filesName.add(namePack);
-                packManager.createPackage(filesName);
-                Toast.makeText(getApplicationContext(),"Пакет " + namePack + " создан", Toast.LENGTH_SHORT).show();
-                dialog.dismiss();
-            }
+        builder.setPositiveButton("Ok", (dialog, which) -> {
+
+            Log.d("Create new file",Boolean.toString(title == null));
+            String namePack = title.getText().toString();
+            ArrayList<String> filesName = new ArrayList<>();
+            filesName.add(namePack);
+            packManager.createPackage(filesName);
+            Toast.makeText(getApplicationContext(),"Пакет " + namePack + " создан", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+
         });
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-            }
-        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
         builder.create();
         builder.show();
     }
 
     private void bindToolbar() {
         ImageView icUpload = (ImageView)findViewById(R.id.ic_upload);
-        icUpload.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d("Click","Click on btn upload.Selected mode: " + true +
-                        "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
-                uploadSelect = true;
-                activateSelectionMode();
-            }
+        icUpload.setOnClickListener(v -> {
+
+            Log.d("Click","Click on btn upload.Selected mode: " + true +
+                    "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
+            uploadSelect = true;
+            activateSelectionMode();
+
         });
 
         ImageView icDelete = (ImageView)findViewById(R.id.ic_delete);
-        icDelete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d("Click","Click on btn delete.Selected mode: " + true +
-                        "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
-                deleteSelect = true;
-                activateSelectionMode();
-            }
+        icDelete.setOnClickListener(v -> {
+
+            Log.d("Click","Click on btn delete.Selected mode: " + true +
+                    "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
+            deleteSelect = true;
+            activateSelectionMode();
+
         });
     }
 
     private void bindSelectionToolbar(){
-
         ImageView icAgree = (ImageView)findViewById(R.id.ic_agree);
         icAgree.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -132,9 +131,17 @@ public class ReviewPackages extends BaseActivity{
 
                 Log.d("Click","Click on btn agree cancel.Selected mode: " + false);
                 if (uploadSelect){
-
-                    // TODO: отправка файла
-//                    packManager.uploadPack(selectedPack);
+                    Log.d("Permission","Internet: " + PermissionManager.checkInternetPermission(ReviewPackages.this));
+                    if (PermissionManager.checkInternetPermission(ReviewPackages.this)) {
+                        if (PermissionManager.checkSignInAccount(ReviewPackages.this)) {
+                            Log.d("SignInAcc","User is already signed in acc");
+                            packManager.uploadPack(selectedPack);
+                        }else{
+                            PermissionManager.requestSignInGoogleAccount(ReviewPackages.this);
+                        }
+                    }else{
+                        PermissionManager.requestInternetPermission(ReviewPackages.this);
+                    }
                     selectedPack.clear();
                     uploadSelect = false;
                     findViewById(R.id.select_toolbar).setVisibility(View.GONE);
@@ -185,12 +192,7 @@ public class ReviewPackages extends BaseActivity{
 
     private void bindAddButton(){
         addBtn = findViewById(R.id.ic_add);
-        addBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showDialogForAddPack();
-            }
-        });
+        addBtn.setOnClickListener(v -> showDialogForAddPack());
     }
 
     private void createRecyclerView(){
@@ -202,25 +204,21 @@ public class ReviewPackages extends BaseActivity{
         adapter.setOnUpdaterRecyclerView(new PackAdapter.OnUpdaterRecyclerView() {
             @Override
             public void update() {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        adapter.notifyDataSetChanged();
-                    }
-                });
+                runOnUiThread(() -> adapter.notifyDataSetChanged());
             }
         });
 
         adapter.setItemClickListeners(new PackAdapter.PackViewHolder.onClickListeners() {
             @Override
             public void onClick(View v,Pack pack) {
-//                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-//                Log.d("Click",packManager.getDir().getAbsolutePath());
-//                Uri uri = Uri.parse(
-//                        packManager.getDir().getAbsolutePath() + File.separator + pack.name + ".csv"
-//                );
-//                intent.setDataAndType(uri, "*/*");
-//                startActivity(Intent.createChooser(intent, "Open folder"));
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                Log.d("Click",packManager.getDir().getAbsolutePath());
+                Uri uri = Uri.parse(
+                        packManager.getDir().getAbsolutePath() + File.separator + pack.name + ".csv"
+                );
+                intent.setDataAndType(uri, "*/*");
+                startActivity(intent);
             }
 
             @Override
@@ -266,6 +264,7 @@ public class ReviewPackages extends BaseActivity{
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+//        permissionManager.getPermissions(this);
         if(packManager.isAlive()){
             packManager.setCurrentActivity(this);
         }
@@ -273,13 +272,28 @@ public class ReviewPackages extends BaseActivity{
         createRecyclerView();
     }
 
-
-
     @Override
     protected void onStop() {
         super.onStop();
         packManager.unsubscribe(adapter);
         selectedPack.clear();
         isSelectAll = false;
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 102) {
+            // The Task returned from this call is always completed, no need to attach
+            // a listener.
+            Log.d("SignInAcc","call from rvAct.Intent ref: " + data);
+            try {
+                super.userAcc = GoogleSignIn.getSignedInAccountFromIntent(data)
+                        .getResult(ApiException.class);
+            } catch (ApiException e) {
+                e.printStackTrace();
+            }
+
+        }
     }
 }
