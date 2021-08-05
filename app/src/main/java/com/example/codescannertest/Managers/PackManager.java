@@ -65,9 +65,9 @@ public class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
     }
 
     @Override
-    public void setData(ArrayList<Pack> d) {
+    public void setData(ArrayList<Pack> data) {
 //        Log.d("update","new Publisher data: " + d.toString());
-        this.data = new ArrayList<>(d);
+        this.data = new ArrayList<>(data);
 //        Log.d("update","current Publisher date: " + data.toString());
         this.notifyDataChange();
     }
@@ -133,7 +133,8 @@ public class PackManager extends Thread implements Publisher<ArrayList<Pack>> {
     }
 
     public synchronized void writeInWritingPackage(String data){
-         /*проверка на специальный DataMatrix символ,
+         /*
+          * проверка на специальный DataMatrix символ,
           * байт-код значение которого равно 29.
           */
         Log.d("MatrixWR",data);

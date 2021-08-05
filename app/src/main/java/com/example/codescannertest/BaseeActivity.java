@@ -138,8 +138,7 @@ public class BaseeActivity extends AppCompatActivity {
                                 }
                             }/*,
                             dialogOnDeniedPermissionListener*/
-                    ))
-                    .check();
+                    )).check();
         }
 
         public static void requestReadAndWriteStoragePermission(Activity activity,Callable<Boolean> Callback){

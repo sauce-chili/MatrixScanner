@@ -1,15 +1,14 @@
 package com.example.codescannertest;
 
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.RequiresApi;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -21,28 +20,151 @@ import android.widget.Toast;
 import com.example.codescannertest.adapter.PackAdapter;
 import com.example.codescannertest.model.Pack;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.karumi.dexter.listener.single.PermissionListener;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 
 
 public class ReviewPackages extends BaseeActivity {
 
     private RecyclerView rvPackages;
     private ArrayList<Pack> selectedPack;
-    boolean isSelectAll = false;
-    boolean deleteSelect = false;
-    boolean uploadSelect = false;
+//    boolean isSelectAll = false;
+//    boolean deleteSelect = false;
+//    boolean uploadSelect = false;
+    private EventHandler eventHandler;
     private PackAdapter adapter;
     private FloatingActionButton addBtn;
 
-    // TODO Enum для состояний
+
+    private interface Event{
+        void handle();
+    }
+
+    private enum EventType{
+        UPlOAD,
+        DELETE,
+        SELECT_ALL,
+        ADD_PACK,
+        NON_ACTION;
+    }
+
+    private class EventHandler{
+
+        private HashMap<EventType,Event> EventList;
+        private EventType currentEventType;
+        private static final String TAG_DEBUG = "EventHandler";
+
+        @RequiresApi(api = Build.VERSION_CODES.N)
+        EventHandler(){
+            EventList = new HashMap<>();
+
+            EventList.put(EventType.UPlOAD,() -> {
+
+                Log.d(TAG_DEBUG,"Upload selected pack");
+                if (PermissionManager.checkInternetPermission(ReviewPackages.this)) {
+                    if (PermissionManager.checkSignInAccount(ReviewPackages.this)) {
+                        Log.d("SignInAcc","User is already signed in acc");
+                        packManager.uploadPack(selectedPack);
+                    }else{
+                        PermissionManager.requestSignInGoogleAccount(ReviewPackages.this);
+                    }
+                }else{
+                    PermissionManager.requestInternetPermission(ReviewPackages.this);
+                }
+                deactivateSelectionMode();
+
+            });
+
+            EventList.put(EventType.DELETE, () -> {
+
+                Log.d(TAG_DEBUG,"Delete selected pack");
+                ArrayList<String> filenames = new ArrayList<>();
+                for(Pack pack : selectedPack){
+                    filenames.add(pack.name);
+                }
+                packManager.deletePackage(filenames);
+                adapter.notifyDataSetChanged();
+                deactivateSelectionMode();
+
+            });
+
+            EventList.put(EventType.ADD_PACK,() -> {
+                // Begin transaction to add csv file.Showing dialog window
+
+                Log.d(TAG_DEBUG,"Add pack.Showing window dialog");
+                View view = LayoutInflater
+                        .from(getApplicationContext())
+                        .inflate(R.layout.dialog_create_package, null);
+
+                AlertDialog.Builder builder = new AlertDialog.Builder(ReviewPackages.this);
+                builder.setView(view);
+                EditText title = view.findViewById(R.id.input_title);
+
+                builder.setPositiveButton("Ok", (dialog, which) -> {
+
+                    Log.d("Create new file",Boolean.toString(title == null));
+                    // assert title != null;
+                    String namePack = title.getText().toString();
+                    ArrayList<String> filesName = new ArrayList<>();
+                    filesName.add(namePack);
+                    packManager.createPackage(filesName);
+                    Toast.makeText(getApplicationContext(),
+                            ("Пакет " + namePack + " создан"), Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                    adapter.notifyItemChanged(adapter.getItemCount() + 1);
+                });
+                builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+                builder.create();
+                builder.show();
+
+            });
+
+            EventList.put(EventType.SELECT_ALL, () -> {
+
+                ArrayList<Pack> packagesList = adapter.getData();
+                Log.d(TAG_DEBUG,"Click btn select all");
+                boolean isSelectAll = !packagesList.stream().allMatch(p -> p.isSelected);
+
+                Log.d(TAG_DEBUG,"isSelectAll: " + isSelectAll);
+
+                for(Pack p : packagesList) {
+                    p.isSelected = isSelectAll;
+                    if (p.isSelected)
+                        if (!selectedPack.contains(p))
+                            selectedPack.add(p);
+                }
+                if(!isSelectAll)
+                    selectedPack.clear();
+                adapter.notifyDataSetChanged();
+                Log.d("Click","Selected pack:" + selectedPack.toString());
+
+            });
+
+            EventList.put(EventType.NON_ACTION, () -> {
+
+                Log.d(TAG_DEBUG,"Action isn't select");
+                return;
+
+            });
+        }
+
+         /*public Event getHandler(EventType type){
+            return EventList.get(type);
+        }*/
+
+        public void setCurrentEventType(EventType type){
+            this.currentEventType = type;
+        }
+
+        public void handleCurrentEvent(){
+            this.EventList.get(this.currentEventType).handle();
+        }
+    }
+
 
     private void activateSelectionMode(){
         findViewById(R.id.toolbar).setVisibility(View.GONE);
@@ -70,44 +192,23 @@ public class ReviewPackages extends BaseeActivity {
             p.isSelected = false;
         }
         selectedPack.clear();
-        deleteSelect = false;
-        uploadSelect = false;
+
+//        currentEvent = null;
+//
+//        deleteSelect = false;
+//        uploadSelect = false;
+
+        this.eventHandler.setCurrentEventType(EventType.NON_ACTION);
         addBtn.setVisibility(View.VISIBLE);
         adapter.notifyDataSetChanged();
-    }
-
-    private void showDialogForAddPack(){
-        View view = LayoutInflater
-                .from(getApplicationContext())
-                .inflate(R.layout.dialog_create_package, null);
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setView(view);
-        EditText title = (EditText) view.findViewById(R.id.input_title);
-
-        builder.setPositiveButton("Ok", (dialog, which) -> {
-
-            Log.d("Create new file",Boolean.toString(title == null));
-            String namePack = title.getText().toString();
-            ArrayList<String> filesName = new ArrayList<>();
-            filesName.add(namePack);
-            packManager.createPackage(filesName);
-            Toast.makeText(getApplicationContext(),"Пакет " + namePack + " создан", Toast.LENGTH_SHORT).show();
-            dialog.dismiss();
-
-        });
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        builder.create();
-        builder.show();
     }
 
     private void bindToolbar() {
         ImageView icUpload = (ImageView)findViewById(R.id.ic_upload);
         icUpload.setOnClickListener(v -> {
 
-            Log.d("Click","Click on btn upload.Selected mode: " + true +
-                    "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
-            uploadSelect = true;
+            this.eventHandler.setCurrentEventType(EventType.UPlOAD);
+            // uploadSelect = true;
             activateSelectionMode();
 
         });
@@ -115,9 +216,8 @@ public class ReviewPackages extends BaseeActivity {
         ImageView icDelete = (ImageView)findViewById(R.id.ic_delete);
         icDelete.setOnClickListener(v -> {
 
-            Log.d("Click","Click on btn delete.Selected mode: " + true +
-                    "; deleteSelected: " + deleteSelect + "; uploadSelected: " + uploadSelect);
-            deleteSelect = true;
+            this.eventHandler.setCurrentEventType(EventType.DELETE);
+            // deleteSelect = true;
             activateSelectionMode();
 
         });
@@ -125,88 +225,43 @@ public class ReviewPackages extends BaseeActivity {
 
     private void bindSelectionToolbar(){
         ImageView icAgree = (ImageView)findViewById(R.id.ic_agree);
-        icAgree.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+        icAgree.setOnClickListener(v -> {
 
-                Log.d("Click","Click on btn agree cancel.Selected mode: " + false);
-                if (uploadSelect){
-                    Log.d("Permission","Internet: " + PermissionManager.checkInternetPermission(ReviewPackages.this));
-                    if (PermissionManager.checkInternetPermission(ReviewPackages.this)) {
-                        if (PermissionManager.checkSignInAccount(ReviewPackages.this)) {
-                            Log.d("SignInAcc","User is already signed in acc");
-                            packManager.uploadPack(selectedPack);
-                        }else{
-                            PermissionManager.requestSignInGoogleAccount(ReviewPackages.this);
-                        }
-                    }else{
-                        PermissionManager.requestInternetPermission(ReviewPackages.this);
-                    }
-                    selectedPack.clear();
-                    uploadSelect = false;
-                    findViewById(R.id.select_toolbar).setVisibility(View.GONE);
-                    findViewById(R.id.toolbar).setVisibility(View.VISIBLE);
-                    deactivateSelectionMode();
-                } else if(deleteSelect){
-
-                    ArrayList<String> filenames = new ArrayList<>();
-                    for(Pack pack : selectedPack){
-                       filenames.add(pack.name);
-                    }
-                    packManager.deletePackage(filenames);
-                    deactivateSelectionMode();
-                }
-            }
+            Log.d("Click","Click on btn agree.");
+            eventHandler.handleCurrentEvent();
         });
 
         ImageView icCancel = (ImageView)findViewById(R.id.ic_cancel);
-        icCancel.setOnClickListener(new View.OnClickListener(){
-            @Override
-            public void onClick(View v) {
-                Log.d("Click","Click on btn cancel.Selected mode: " + false);
-                deactivateSelectionMode();
-            }
+        icCancel.setOnClickListener(v -> {
+
+            Log.d("Click","Click on btn cancel.Selected mode: " + false);
+            deactivateSelectionMode();
+
         });
 
         ImageView icSelectAll = (ImageView)findViewById(R.id.ic_selectAll);
-        icSelectAll.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ArrayList<Pack> packagesList = adapter.getData();
-                Log.d("Click","Click on btn Select All.Selected mode: " + false);
-                isSelectAll = !isSelectAll;
-
-                for(Pack p : packagesList) {
-                    p.isSelected = isSelectAll;
-                    if (p.isSelected)
-                        if (!selectedPack.contains(p))
-                            selectedPack.add(p);
-                }
-                if(!isSelectAll)
-                    selectedPack.clear();
-                adapter.notifyDataSetChanged();
-                Log.d("Click","Selected pack:" + selectedPack.toString());
-            }
+        icSelectAll.setOnClickListener(v -> {
+            this.eventHandler.setCurrentEventType(EventType.SELECT_ALL);
+            this.eventHandler.handleCurrentEvent();
         });
     }
 
     private void bindAddButton(){
         addBtn = findViewById(R.id.ic_add);
-        addBtn.setOnClickListener(v -> showDialogForAddPack());
+        addBtn.setOnClickListener(v -> {
+            this.eventHandler.setCurrentEventType(EventType.ADD_PACK);
+            this.eventHandler.handleCurrentEvent();
+        });
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     private void createRecyclerView(){
 
         rvPackages = findViewById(R.id.rv_pck);
         rvPackages.setLayoutManager(new LinearLayoutManager(this));
         adapter = new PackAdapter();
-        selectedPack = new ArrayList<Pack>();
-        adapter.setOnUpdaterRecyclerView(new PackAdapter.OnUpdaterRecyclerView() {
-            @Override
-            public void update() {
-                runOnUiThread(() -> adapter.notifyDataSetChanged());
-            }
-        });
+        selectedPack = new ArrayList<>();
+        adapter.setOnUpdaterRecyclerView(() -> runOnUiThread(() -> adapter.notifyDataSetChanged()));
 
         adapter.setItemClickListeners(new PackAdapter.PackViewHolder.onClickListeners() {
             @Override
@@ -252,6 +307,7 @@ public class ReviewPackages extends BaseeActivity {
         this.bindAddButton();
         this.bindToolbar();
         this.bindSelectionToolbar();
+        this.eventHandler = new EventHandler();
 
         DividerItemDecoration decorator =
                 new DividerItemDecoration(this, DividerItemDecoration.VERTICAL);
@@ -261,6 +317,7 @@ public class ReviewPackages extends BaseeActivity {
         rvPackages.addItemDecoration(decorator);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -277,7 +334,6 @@ public class ReviewPackages extends BaseeActivity {
         super.onStop();
         packManager.unsubscribe(adapter);
         selectedPack.clear();
-        isSelectAll = false;
     }
 
     @Override

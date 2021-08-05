@@ -23,6 +23,8 @@ public class PackAdapter extends RecyclerView.Adapter<PackAdapter.PackViewHolder
         implements Subscriber<ArrayList<Pack>> {
 
     static private final String TAG = "PackAdapter";
+
+
     static public class PackViewHolder extends RecyclerView.ViewHolder{
         private TextView namePack;
         private RadioButton SelectedBtn;
@@ -106,7 +108,7 @@ public class PackAdapter extends RecyclerView.Adapter<PackAdapter.PackViewHolder
         //Log.d("update","update subscriber: " + data.toString());
         //this.packageList = null;
         this.packageList.clear();
-        this.packageList = data;
+        this.packageList = new ArrayList<>(data);
         Log.d("update","sub date: " + packageList.toString());
         if (updaterRecyclerView != null)
             updaterRecyclerView.update();
@@ -116,7 +118,7 @@ public class PackAdapter extends RecyclerView.Adapter<PackAdapter.PackViewHolder
 
     @Override
     public ArrayList<Pack> getData() {
-        return this.packageList;
+        return new ArrayList<>(this.packageList);
     }
 
     public void setItemClickListeners(PackViewHolder.onClickListeners clickListeners) {
